@@ -8,6 +8,7 @@
     "publish": "wrangler publish"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241018.0",
     "typescript": "^5.5.0",
     "wrangler": "^4.43.0"
   }
