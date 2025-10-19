@@ -8,7 +8,7 @@
     "publish": "wrangler publish"
   },
   "devDependencies": {
-    "wrangler": "^3.23.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "wrangler": "^4.43.0"
   }
 }

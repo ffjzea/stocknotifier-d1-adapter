@@ -10,5 +10,6 @@ local_protocol = "http"
 
 # D1 binding
 [[d1_databases]]
-binding = "DB"
-database_name = "STOCKNOTIFIER_DB"
+binding = "stocknotifier"
+database_name = "stocknotifier"
+database_id = "3ee3cc46-995f-41e8-a336-d27c4963748d"
