@@ -1,0 +1,14 @@
+{
+  "name": "stocknotifier-d1-adapter",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "wrangler dev",
+    "publish": "wrangler publish"
+  },
+  "devDependencies": {
+    "wrangler": "^3.23.0",
+    "typescript": "^5.5.0"
+  }
+}

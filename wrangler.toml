@@ -1,0 +1,14 @@
+name = "stocknotifier-d1-adapter"
+main = "./dist/index.js"
+compatibility_date = "2025-10-19"
+
+[build]
+command = "npm run build"
+
+[dev]
+local_protocol = "http"
+
+# D1 binding
+[[d1_databases]]
+binding = "DB"
+database_name = "STOCKNOTIFIER_DB"
