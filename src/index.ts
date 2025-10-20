@@ -129,11 +129,22 @@ async function handleCreateMockAnalysis(env: Env) {
   return json(mockData, 201);
 }
 
+// 取得 d1_migrations 的所有資料
+async function handleGetD1Migrations(env: Env) {
+  const resp = await env.stocknotifier.prepare('SELECT * FROM d1_migrations ORDER BY id').all();
+  return json(resp.results ?? []);
+}
+
 export default {
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\//, '').replace(/\/$/, ''); // trim leading/trailing slashes
     try {
+      // 新增：GET /d1_migrations
+      if (request.method === 'GET' && path === 'd1_migrations') {
+        return await handleGetD1Migrations(env);
+      }
+
       if (request.method === 'GET' && (path === 'orders' || path === '')) {
         return await handleGetOrders(env);
       }
