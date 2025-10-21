@@ -9,6 +9,6 @@ CREATE TABLE IF NOT EXISTS indicator_analysis_records (
   macdValue REAL,
   macdSignalValue REAL,
   kdStatus TEXT,
-  kValue REAL,
-  dValue REAL
+  kdKValue REAL,
+  kdDValue REAL
 );
