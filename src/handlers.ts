@@ -41,6 +41,22 @@ export async function handleCreateOrder(env: Env, payload: OrderPayload) {
 }
 
 export async function handleCreateAnalysis(env: Env, payload: AnalysisPayload) {
+  const toNumber = (v: unknown): number | null => {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const n = Number.parseFloat(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
+
+  const rsiValue = toNumber(payload.rsiValue);
+  const macdValue = toNumber(payload.macdValue);
+  const macdSignalValue = toNumber(payload.macdSignalValue);
+  const kValue = toNumber(payload.kValue);
+  const dValue = toNumber(payload.dValue);
+
   await env.stocknotifier.prepare(
     `INSERT INTO indicator_analysis_records (symbol, analysisTime, rsiStatus, rsiValue, macdStatus, macdValue, macdSignalValue, kdStatus, kValue, dValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
@@ -48,13 +64,13 @@ export async function handleCreateAnalysis(env: Env, payload: AnalysisPayload) {
       payload.symbol ?? null,
       payload.analysisTime ?? null,
       payload.rsiStatus ?? null,
-      payload.rsiValue ?? null,
+      rsiValue,
       payload.macdStatus ?? null,
-      payload.macdValue ?? null,
-      payload.macdSignalValue ?? null,
+      macdValue,
+      macdSignalValue,
       payload.kdStatus ?? null,
-      payload.kValue ?? null,
-      payload.dValue ?? null
+      kValue,
+      dValue
     )
     .run();
 
