@@ -4,19 +4,28 @@ export interface Env {
 
 interface OrderPayload {
   symbol: string;
-  price?: number;
-  qty?: number;
-  action?: string;
-  traderNo?: string;
-  strategy?: string;
-  quoteOrderQty?: number;
+  price?: number; // corresponds to double price in Java
+  qty?: number | null;
+  quoteOrderQty?: number | null;
+  action?: string | null;
+  createdAt?: string | null; // ISO timestamp for LocalDateTime
+  traderNo?: string | null;
+  strategy?: string | null;
+  terminateTime?: string | null; // ISO timestamp for LocalDateTime
+  terminatePrice?: number | null;
 }
 
 interface AnalysisPayload {
   symbol?: string;
-  strategy?: string;
-  timeframe?: string;
-  metrics: unknown;
+  analysisTime?: string | null; // ISO timestamp matching LocalDateTime
+  rsiStatus?: string | null;
+  rsiValue?: number | null;
+  macdStatus?: string | null;
+  macdValue?: number | null;
+  macdSignalValue?: number | null;
+  kdStatus?: string | null;
+  kValue?: number | null;
+  dValue?: number | null;
 }
 
 function json(body: unknown, status = 200) {
@@ -27,7 +36,7 @@ function json(body: unknown, status = 200) {
 }
 
 async function handleGetOrders(env: Env) {
-  const resp = await env.stocknotifier.prepare('SELECT * FROM orders ORDER BY created_at DESC').all();
+  const resp = await env.stocknotifier.prepare('SELECT * FROM orders ORDER BY createdAt DESC').all();
   return json(resp.results ?? []);
 }
 
@@ -38,15 +47,23 @@ async function handleGetOrderById(env: Env, id: string) {
 }
 
 async function handleGetOpenOrders(env: Env) {
-  const resp = await env.stocknotifier.prepare('SELECT * FROM orders WHERE terminate_time IS NULL ORDER BY created_at DESC').all();
+  const resp = await env.stocknotifier.prepare('SELECT * FROM orders WHERE terminateTime IS NULL ORDER BY createdAt DESC').all();
   return json(resp.results ?? []);
 }
 
 async function handleCreateOrder(env: Env, payload: OrderPayload) {
   await env.stocknotifier.prepare(
-    `INSERT INTO orders (symbol, price, qty, action, trader_no, strategy, quote_order_qty, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    `INSERT INTO orders (symbol, price, qty, quoteOrderQty, action, traderNo, strategy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
   )
-    .bind(payload.symbol, payload.price ?? null, payload.qty ?? null, payload.action ?? null, payload.traderNo ?? null, payload.strategy ?? null, payload.quoteOrderQty ?? null)
+    .bind(
+      payload.symbol,
+      payload.price ?? null,
+      payload.qty ?? null,
+      payload.quoteOrderQty ?? null,
+      payload.action ?? null,
+      payload.traderNo ?? null,
+      payload.strategy ?? null
+    )
     .run();
 
   const idRes = await env.stocknotifier.prepare("SELECT last_insert_rowid() as id").all();
@@ -60,9 +77,20 @@ async function handleCreateOrder(env: Env, payload: OrderPayload) {
 
 async function handleCreateAnalysis(env: Env, payload: AnalysisPayload) {
   await env.stocknotifier.prepare(
-    `INSERT INTO indicator_analysis_records (symbol, strategy, timeframe, metrics, created_at) VALUES (?, ?, ?, ?, datetime('now'))`
+    `INSERT INTO indicator_analysis_records (symbol, analysisTime, rsiStatus, rsiValue, macdStatus, macdValue, macdSignalValue, kdStatus, kValue, dValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
-    .bind(payload.symbol ?? null, payload.strategy ?? null, payload.timeframe ?? null, JSON.stringify(payload.metrics) ?? null)
+    .bind(
+      payload.symbol ?? null,
+      payload.analysisTime ?? null,
+      payload.rsiStatus ?? null,
+      payload.rsiValue ?? null,
+      payload.macdStatus ?? null,
+      payload.macdValue ?? null,
+      payload.macdSignalValue ?? null,
+      payload.kdStatus ?? null,
+      payload.kValue ?? null,
+      payload.dValue ?? null
+    )
     .run();
 
   const idRes = await env.stocknotifier.prepare("SELECT last_insert_rowid() as id").all();
@@ -74,60 +102,6 @@ async function handleCreateAnalysis(env: Env, payload: AnalysisPayload) {
   return json({}, 201);
 }
 
-async function handleCreateMockAnalysis(env: Env) {
-  // 生成模擬的 analysis 資料
-  const mockData = {
-    symbol: 'TSLA',
-    strategy: 'momentum_strategy',
-    timeframe: '1h',
-    metrics: {
-      rsi: 65.4,
-      macd: {
-        signal: 0.8,
-        histogram: 1.2,
-        macd: 2
-      },
-      bollinger_bands: {
-        upper: 245.5,
-        middle: 240,
-        lower: 234.5,
-        position: 'above_middle'
-      },
-      volume_profile: {
-        avg_volume: 45000000,
-        current_volume: 52000000,
-        volume_ratio: 1.16
-      },
-      trend_analysis: {
-        direction: 'bullish',
-        strength: 'moderate',
-        confidence: 0.75
-      },
-      price_action: {
-        current_price: 242.15,
-        price_change_1h: 2.35,
-        price_change_percent: 0.98
-      },
-      analysis_timestamp: new Date().toISOString(),
-      signals: ['BUY', 'MOMENTUM_UP'],
-      risk_level: 'medium'
-    }
-  };
-
-  await env.stocknotifier.prepare(
-    `INSERT INTO indicator_analysis_records (symbol, strategy, timeframe, metrics, created_at) VALUES (?, ?, ?, ?, datetime('now'))`
-  )
-    .bind(mockData.symbol, mockData.strategy, mockData.timeframe, JSON.stringify(mockData.metrics))
-    .run();
-
-  const idRes = await env.stocknotifier.prepare("SELECT last_insert_rowid() as id").all();
-  const id = idRes.results?.[0]?.id;
-  if (id) {
-    const row = await env.stocknotifier.prepare('SELECT * FROM indicator_analysis_records WHERE id = ?').bind(id).all();
-    return json(row.results?.[0] ?? {}, 201);
-  }
-  return json(mockData, 201);
-}
 
 // 取得 d1_migrations 的所有資料
 async function handleGetD1Migrations(env: Env) {
@@ -167,10 +141,6 @@ export default {
       if (request.method === 'POST' && path === 'analysis') {
         const payload: AnalysisPayload = await request.json();
         return await handleCreateAnalysis(env, payload);
-      }
-
-      if (request.method === 'POST' && path === 'test/analysis') {
-        return await handleCreateMockAnalysis(env);
       }
 
       return new Response('Not Found', { status: 404 });
