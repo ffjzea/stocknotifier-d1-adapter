@@ -54,8 +54,9 @@ export async function handleCreateAnalysis(env: Env, payload: AnalysisPayload) {
   const rsiValue = toNumber(payload.rsiValue);
   const macdValue = toNumber(payload.macdValue);
   const macdSignalValue = toNumber(payload.macdSignalValue);
-  const kdKValue = toNumber(payload.kValue);
-  const kdDValue = toNumber(payload.dValue);
+  // Accept both naming conventions: prefer kdKValue/kdDValue but fall back to kValue/dValue
+  const kdKValue = toNumber(payload.kdKValue ?? payload.kValue);
+  const kdDValue = toNumber(payload.kdDValue ?? payload.dValue);
 
   await env.stocknotifier.prepare(
   `INSERT INTO indicator_analysis_records (symbol, analysisTime, rsiStatus, rsiValue, macdStatus, macdValue, macdSignalValue, kdStatus, kdKValue, kdDValue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`

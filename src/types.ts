@@ -26,6 +26,8 @@ export interface AnalysisPayload {
   kdStatus?: string | null;
   kValue?: number | null;
   dValue?: number | null;
+  kdKValue?: number | null;
+  kdDValue?: number | null;
 }
 
 export function json(body: unknown, status = 200) {
