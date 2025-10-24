@@ -18,6 +18,8 @@ const patterns = {
   analysis: new URLPattern({ pathname: '/analysis' }),
   binanceOrder: new URLPattern({ pathname: '/binance/order' }),
   binanceAccount: new URLPattern({ pathname: '/binance/account' }),
+  binanceKlines: new URLPattern({ pathname: '/binance/klines' }),
+  binanceExchangeInfo: new URLPattern({ pathname: '/binance/exchangeInfo' }),
   // (版本化路由已移除)
 };
 
@@ -28,7 +30,7 @@ export default {
     try {
       const method = request.method;
 
-      const handleGet = async () => {
+      const handleSimpleGet = async (pathname: string, env: Env): Promise<Response | null> => {
         if (patterns.d1Migrations.test({ pathname })) {
           return await handleGetD1Migrations(env);
         }
@@ -39,21 +41,40 @@ export default {
           return await handleGetOpenOrders(env);
         }
 
-        let orderMatch = patterns.orderById.exec({ pathname });
+        const orderMatch = patterns.orderById.exec({ pathname });
         if (orderMatch) {
           const id = orderMatch.pathname.groups?.id;
           if (id) return handleGetOrderById(env, id);
         }
+        return null;
+      };
 
-        // no versioned id route
-
+      const handleBinanceGet = async (request: Request, pathname: string, env: Env): Promise<Response | null> => {
         if (patterns.binanceAccount.test({ pathname })) {
-          // allow optional recvWindow query param
           const urlObj = new URL(request.url);
           const recvWindow = urlObj.searchParams.get('recvWindow');
           const recv = recvWindow ? Number.parseInt(recvWindow, 10) : undefined;
           const mod = await import('./handlers');
           return mod.handleBinanceAccount(env, recv);
+        }
+
+        if (patterns.binanceKlines.test({ pathname })) {
+          const urlObj = new URL(request.url);
+          const symbol = urlObj.searchParams.get('symbol') ?? '';
+          const interval = urlObj.searchParams.get('interval') ?? '1m';
+          const limit = urlObj.searchParams.has('limit') ? Number.parseInt(urlObj.searchParams.get('limit')!, 10) : undefined;
+          const startTime = urlObj.searchParams.has('startTime') ? Number.parseInt(urlObj.searchParams.get('startTime')!, 10) : undefined;
+          const endTime = urlObj.searchParams.has('endTime') ? Number.parseInt(urlObj.searchParams.get('endTime')!, 10) : undefined;
+          if (!symbol) return new Response(JSON.stringify({ error: 'Missing symbol query parameter' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+          const mod = await import('./handlers');
+          return mod.handleBinanceKlines(env, symbol, interval, limit, startTime, endTime);
+        }
+
+        if (patterns.binanceExchangeInfo.test({ pathname })) {
+          const urlObj = new URL(request.url);
+          const symbol = urlObj.searchParams.get('symbol') ?? undefined;
+          const mod = await import('./handlers');
+          return mod.handleBinanceExchangeInfo(env, symbol);
         }
 
         return null;
@@ -78,7 +99,10 @@ export default {
       };
 
       let resp: Response | Promise<Response> | null = null;
-      if (method === 'GET') resp = await handleGet();
+      if (method === 'GET') {
+        resp = await handleSimpleGet(pathname, env);
+        resp ??= await handleBinanceGet(request, pathname, env);
+      }
       if (method === 'POST') resp = await handlePost();
 
       if (resp) return resp;

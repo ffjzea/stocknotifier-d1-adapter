@@ -107,6 +107,42 @@ export class BinanceClient {
   }
 
   /**
+   * Get klines/candlestick data (PUBLIC)
+   * https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data
+   */
+  public async getKlines(symbol: string, interval: string, limit?: number, startTime?: number, endTime?: number): Promise<BinanceResponse> {
+    const params: Record<string, unknown> = { symbol, interval };
+    if (limit !== undefined) params.limit = limit;
+    if (startTime !== undefined) params.startTime = startTime;
+    if (endTime !== undefined) params.endTime = endTime;
+
+    const qs = this.buildQueryString(params);
+    const suffix = qs ? ('?' + qs) : '';
+    const url = this.baseUrl + '/api/v3/klines' + suffix;
+
+    const resp = await fetch(url, { method: 'GET' });
+    const data = await resp.json().catch(() => ({ error: 'Invalid JSON response', status: resp.status }));
+    return { status: resp.status, data };
+  }
+
+  /**
+   * Get exchange information (PUBLIC). Optionally pass a symbol to filter.
+   * https://binance-docs.github.io/apidocs/spot/en/#exchange-information
+   */
+  public async getExchangeInfo(symbol?: string): Promise<BinanceResponse> {
+    const params: Record<string, unknown> = {};
+    if (symbol !== undefined) params.symbol = symbol;
+
+    const qs = this.buildQueryString(params);
+    const suffix = qs ? ('?' + qs) : '';
+    const url = this.baseUrl + '/api/v3/exchangeInfo' + suffix;
+
+    const resp = await fetch(url, { method: 'GET' });
+    const data = await resp.json().catch(() => ({ error: 'Invalid JSON response', status: resp.status }));
+    return { status: resp.status, data };
+  }
+
+  /**
    * Ensure we have a recent server time offset. Uses a 5 minute TTL.
    */
   private async ensureTimeSync(): Promise<void> {

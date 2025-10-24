@@ -17,6 +17,19 @@ export async function handleBinanceAccount(env: Env, recvWindow?: number) {
   return new Response(JSON.stringify({ status: res.status, data: res.data }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
 }
 
+export async function handleBinanceKlines(env: Env, symbol: string, interval: string, limit?: number, startTime?: number, endTime?: number) {
+  // klines endpoint is public; no API key required
+  const client = BinanceClient.fromEnv(env) ?? new BinanceClient('', '', env.BINANCE_USE_TESTNET ? 'https://testnet.binance.vision' : 'https://api.binance.com');
+  const res = await client.getKlines(symbol, interval, limit, startTime, endTime);
+  return new Response(JSON.stringify({ status: res.status, data: res.data }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handleBinanceExchangeInfo(env: Env, symbol?: string) {
+  const client = BinanceClient.fromEnv(env) ?? new BinanceClient('', '', env.BINANCE_USE_TESTNET ? 'https://testnet.binance.vision' : 'https://api.binance.com');
+  const res = await client.getExchangeInfo(symbol);
+  return new Response(JSON.stringify({ status: res.status, data: res.data }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
+}
+
 export async function handleGetOrders(env: Env) {
   const resp = await env.stocknotifier.prepare('SELECT * FROM orders ORDER BY createdAt DESC').all();
   return json(resp.results ?? []);
