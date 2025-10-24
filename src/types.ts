@@ -51,3 +51,18 @@ export interface BinanceOrderPayload {
   timeInForce?: string;
   recvWindow?: number;
 }
+
+export interface BinanceClientConfig {
+  apiKey: string;
+  apiSecret: string;
+  baseUrl?: string;
+}
+
+export function getBinanceConfig(env: Env): BinanceClientConfig | null {
+  const apiKey = env.BINANCE_API_KEY;
+  const apiSecret = env.BINANCE_API_SECRET;
+  if (!apiKey || !apiSecret) return null;
+  const useTestnet = !!(env.BINANCE_USE_TESTNET === true || env.BINANCE_USE_TESTNET === 'true');
+  const baseUrl = useTestnet ? 'https://testnet.binance.vision' : undefined;
+  return { apiKey, apiSecret, baseUrl };
+}

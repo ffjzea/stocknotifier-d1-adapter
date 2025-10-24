@@ -1,4 +1,4 @@
-import { BinanceOrderPayload, Env } from './types';
+import { BinanceOrderPayload, Env, getBinanceConfig } from './types';
 
 export interface BinanceResponse {
   status: number;
@@ -6,9 +6,9 @@ export interface BinanceResponse {
 }
 
 export class BinanceClient {
-  private apiKey: string;
-  private apiSecret: string;
-  private baseUrl: string;
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
+  private readonly baseUrl: string;
 
   constructor(apiKey: string, apiSecret: string, baseUrl = 'https://api.binance.com') {
     this.apiKey = apiKey;
@@ -18,12 +18,9 @@ export class BinanceClient {
 
   /** Create a BinanceClient from Env (factory) */
   public static fromEnv(env: Env): BinanceClient | null {
-    const apiKey = env.BINANCE_API_KEY;
-    const apiSecret = env.BINANCE_API_SECRET;
-    if (!apiKey || !apiSecret) return null;
-    const useTestnet = !!(env.BINANCE_USE_TESTNET === true || env.BINANCE_USE_TESTNET === 'true');
-    const baseUrl = useTestnet ? 'https://testnet.binance.vision' : undefined;
-    return new BinanceClient(apiKey, apiSecret, baseUrl);
+    const cfg = getBinanceConfig(env);
+    if (!cfg) return null;
+    return new BinanceClient(cfg.apiKey, cfg.apiSecret, cfg.baseUrl);
   }
 
   private async hmacSha256(message: string) {
