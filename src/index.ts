@@ -16,6 +16,7 @@ const patterns = {
   ordersOpen: new URLPattern({ pathname: '/orders/open' }),
   orderById: new URLPattern({ pathname: '/orders/:id' }),
   analysis: new URLPattern({ pathname: '/analysis' }),
+  binanceOrder: new URLPattern({ pathname: '/binance/order' }),
   // (版本化路由已移除)
 };
 
@@ -56,6 +57,12 @@ export default {
         if (patterns.analysis.test({ pathname })) {
           const payload: AnalysisPayload = await request.json();
           return handleCreateAnalysis(env, payload);
+        }
+        if (patterns.binanceOrder.test({ pathname })) {
+          const payload = await request.json();
+          // lazy import to avoid affecting cold start of existing handlers
+          const mod = await import('./handlers');
+          return mod.handleBinanceOrder(env, payload as any);
         }
         return null;
       };

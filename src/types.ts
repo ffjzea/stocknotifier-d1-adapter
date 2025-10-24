@@ -1,5 +1,10 @@
 export interface Env {
   stocknotifier: D1Database;
+  // optional Binance API bindings (can also come from secrets/env)
+  BINANCE_API_KEY?: string;
+  BINANCE_API_SECRET?: string;
+  // when truthy, handler will use Binance testnet base URL
+  BINANCE_USE_TESTNET?: string | boolean;
 }
 
 export interface OrderPayload {
@@ -35,4 +40,14 @@ export function json(body: unknown, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' }
   });
+}
+
+export interface BinanceOrderPayload {
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  type: string;
+  quantity?: number | string;
+  price?: number | string;
+  timeInForce?: string;
+  recvWindow?: number;
 }
