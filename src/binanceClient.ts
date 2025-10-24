@@ -9,6 +9,9 @@ export class BinanceClient {
   private readonly apiKey: string;
   private readonly apiSecret: string;
   private readonly baseUrl: string;
+  // cached server time offset (serverTime - localTime)
+  private timeOffsetMillis: number | null = null;
+  private lastTimeSync: number | null = null;
 
   constructor(apiKey: string, apiSecret: string, baseUrl = 'https://api.binance.com') {
     this.apiKey = apiKey;
@@ -48,7 +51,8 @@ export class BinanceClient {
   }
 
   public async placeOrder(payload: BinanceOrderPayload): Promise<BinanceResponse> {
-    const timestamp = Date.now();
+    await this.ensureTimeSync();
+    const timestamp = Date.now() + (this.timeOffsetMillis ?? 0);
     const params: Record<string, unknown> = {
       symbol: payload.symbol,
       side: payload.side,
@@ -82,7 +86,8 @@ export class BinanceClient {
    * https://binance-docs.github.io/apidocs/spot/en/#account-information-user_data
    */
   public async getSpotAccount(recvWindow?: number): Promise<BinanceResponse> {
-    const timestamp = Date.now();
+    await this.ensureTimeSync();
+    const timestamp = Date.now() + (this.timeOffsetMillis ?? 0);
     const params: Record<string, unknown> = { timestamp };
     if (recvWindow !== undefined) params.recvWindow = recvWindow;
 
@@ -99,5 +104,24 @@ export class BinanceClient {
 
     const data = await resp.json().catch(() => ({ error: 'Invalid JSON response', status: resp.status }));
     return { status: resp.status, data };
+  }
+
+  /**
+   * Ensure we have a recent server time offset. Uses a 5 minute TTL.
+   */
+  private async ensureTimeSync(): Promise<void> {
+    const TTL = 5 * 60 * 1000; // 5 minutes
+    if (this.lastTimeSync && (Date.now() - this.lastTimeSync) < TTL && this.timeOffsetMillis !== null) return;
+    try {
+      const resp = await fetch(`${this.baseUrl}/api/v3/time`, { method: 'GET' });
+      const json = await resp.json().catch(() => null) as any;
+      const serverTime = typeof json?.serverTime === 'number' ? json.serverTime : null;
+      if (serverTime !== null) {
+        this.timeOffsetMillis = serverTime - Date.now();
+        this.lastTimeSync = Date.now();
+      }
+    } catch {
+      // swallow - we'll fall back to local clock
+    }
   }
 }
