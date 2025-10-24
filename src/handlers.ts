@@ -1,17 +1,19 @@
 import { Env, OrderPayload, AnalysisPayload, json, BinanceOrderPayload } from './types';
 import { BinanceClient } from './binanceClient';
 
-export async function handleBinanceOrder(env: Env, payload: BinanceOrderPayload) {
-  const apiKey = env.BINANCE_API_KEY;
-  const apiSecret = env.BINANCE_API_SECRET;
-  if (!apiKey || !apiSecret) {
-    return json({ error: 'Missing Binance API credentials' }, 400);
-  }
+// Use BinanceClient.fromEnv(env) as a reusable factory
 
-  const useTestnet = !!(env.BINANCE_USE_TESTNET === true || env.BINANCE_USE_TESTNET === 'true');
-  const baseUrl = useTestnet ? 'https://testnet.binance.vision' : undefined;
-  const client = new BinanceClient(apiKey, apiSecret, baseUrl);
+export async function handleBinanceOrder(env: Env, payload: BinanceOrderPayload) {
+  const client = BinanceClient.fromEnv(env);
+  if (!client) return json({ error: 'Missing Binance API credentials' }, 400);
   const res = await client.placeOrder(payload);
+  return new Response(JSON.stringify({ status: res.status, data: res.data }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
+}
+
+export async function handleBinanceAccount(env: Env, recvWindow?: number) {
+  const client = BinanceClient.fromEnv(env);
+  if (!client) return json({ error: 'Missing Binance API credentials' }, 400);
+  const res = await client.getSpotAccount(recvWindow);
   return new Response(JSON.stringify({ status: res.status, data: res.data }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
 }
 

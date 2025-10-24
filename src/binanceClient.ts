@@ -1,4 +1,4 @@
-import { BinanceOrderPayload } from './types';
+import { BinanceOrderPayload, Env } from './types';
 
 export interface BinanceResponse {
   status: number;
@@ -14,6 +14,16 @@ export class BinanceClient {
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.baseUrl = baseUrl.replace(/\/$/, '');
+  }
+
+  /** Create a BinanceClient from Env (factory) */
+  public static fromEnv(env: Env): BinanceClient | null {
+    const apiKey = env.BINANCE_API_KEY;
+    const apiSecret = env.BINANCE_API_SECRET;
+    if (!apiKey || !apiSecret) return null;
+    const useTestnet = !!(env.BINANCE_USE_TESTNET === true || env.BINANCE_USE_TESTNET === 'true');
+    const baseUrl = useTestnet ? 'https://testnet.binance.vision' : undefined;
+    return new BinanceClient(apiKey, apiSecret, baseUrl);
   }
 
   private async hmacSha256(message: string) {
@@ -64,6 +74,30 @@ export class BinanceClient {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body
+    });
+
+    const data = await resp.json().catch(() => ({ error: 'Invalid JSON response', status: resp.status }));
+    return { status: resp.status, data };
+  }
+
+  /**
+   * Get spot account information (SIGNED)
+   * https://binance-docs.github.io/apidocs/spot/en/#account-information-user_data
+   */
+  public async getSpotAccount(recvWindow?: number): Promise<BinanceResponse> {
+    const timestamp = Date.now();
+    const params: Record<string, unknown> = { timestamp };
+    if (recvWindow !== undefined) params.recvWindow = recvWindow;
+
+    const qs = this.buildQueryString(params);
+    const signature = await this.hmacSha256(qs);
+    const url = `${this.baseUrl}/api/v3/account?${qs}&signature=${signature}`;
+
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-MBX-APIKEY': this.apiKey
+      }
     });
 
     const data = await resp.json().catch(() => ({ error: 'Invalid JSON response', status: resp.status }));

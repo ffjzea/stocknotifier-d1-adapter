@@ -17,6 +17,7 @@ const patterns = {
   orderById: new URLPattern({ pathname: '/orders/:id' }),
   analysis: new URLPattern({ pathname: '/analysis' }),
   binanceOrder: new URLPattern({ pathname: '/binance/order' }),
+  binanceAccount: new URLPattern({ pathname: '/binance/account' }),
   // (版本化路由已移除)
 };
 
@@ -45,6 +46,15 @@ export default {
         }
 
         // no versioned id route
+
+        if (patterns.binanceAccount.test({ pathname })) {
+          // allow optional recvWindow query param
+          const urlObj = new URL(request.url);
+          const recvWindow = urlObj.searchParams.get('recvWindow');
+          const recv = recvWindow ? Number.parseInt(recvWindow, 10) : undefined;
+          const mod = await import('./handlers');
+          return mod.handleBinanceAccount(env, recv);
+        }
 
         return null;
       };
