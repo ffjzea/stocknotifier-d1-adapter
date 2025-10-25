@@ -50,15 +50,70 @@ export class BinanceClient {
     return parts.join('&');
   }
 
+  private async getPriceTickSize(symbol: string): Promise<number> {
+    const resp = await this.getExchangeInfo(symbol);
+    if (resp.status !== 200) throw new Error(`Failed to get exchange info for tickSize: status ${resp.status}`);
+    const data = resp.data as any;
+    const symbols = data.symbols;
+    if (!Array.isArray(symbols) || symbols.length === 0) throw new Error('No symbols found in exchange info');
+    const filters = symbols[0].filters;
+    for (const f of filters) {
+      if (f.filterType === 'PRICE_FILTER') {
+        return Number.parseFloat(f.tickSize);
+      }
+    }
+    throw new Error('PRICE_FILTER not found in exchange info');
+  }
+
+  private async getQuantityStepSize(symbol: string): Promise<number> {
+    const resp = await this.getExchangeInfo(symbol);
+    if (resp.status !== 200) throw new Error(`Failed to get exchange info for stepSize: status ${resp.status}`);
+    const data = resp.data as any;
+    const symbols = data.symbols;
+    if (!Array.isArray(symbols) || symbols.length === 0) throw new Error('No symbols found in exchange info');
+    const filters = symbols[0].filters;
+    for (const f of filters) {
+      if (f.filterType === 'LOT_SIZE') {
+        return Number.parseFloat(f.stepSize);
+      }
+    }
+    throw new Error('LOT_SIZE not found in exchange info');
+  }
+
+  private truncateToStep(value: number, step: number): number {
+    const ticks = Math.floor(value / step);
+    return ticks * step;
+  }
+
+  private alignPriceToTick(price: number, tickSize: number): number {
+    const ticks = Math.floor(price / tickSize);
+    return ticks * tickSize;
+  }
+
   public async placeOrder(payload: BinanceOrderPayload): Promise<BinanceResponse> {
     await this.ensureTimeSync();
     const timestamp = Date.now() + (this.timeOffsetMillis ?? 0);
+
+    // Adjust quantity to step size
+    let quantity = payload.quantity;
+    if (typeof quantity === 'number') {
+      const stepSize = await this.getQuantityStepSize(payload.symbol);
+      quantity = this.truncateToStep(quantity, stepSize);
+    }
+
+    // Adjust price to tick size
+    let price = payload.price;
+    if (typeof price === 'number') {
+      const tickSize = await this.getPriceTickSize(payload.symbol);
+      price = this.alignPriceToTick(price, tickSize);
+    }
+
     const params: Record<string, unknown> = {
       symbol: payload.symbol,
       side: payload.side,
       type: payload.type,
-      quantity: payload.quantity,
-      price: payload.price,
+      quantity,
+      price,
       timeInForce: payload.timeInForce,
       recvWindow: payload.recvWindow,
       timestamp
