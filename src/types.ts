@@ -58,6 +58,11 @@ export interface BinanceClientConfig {
   baseUrl?: string;
 }
 
+export interface BinanceResponse {
+  status: number;
+  data: unknown;
+}
+
 export function getBinanceConfig(env: Env): BinanceClientConfig | null {
   const apiKey = env.BINANCE_API_KEY;
   const apiSecret = env.BINANCE_API_SECRET;

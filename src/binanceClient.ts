@@ -1,9 +1,5 @@
-import { BinanceOrderPayload, Env, getBinanceConfig } from './types';
-
-export interface BinanceResponse {
-  status: number;
-  data: unknown;
-}
+import { BinanceOrderPayload, Env, getBinanceConfig, BinanceResponse } from './types';
+import { ExchangeInfoManager } from './exchangeInfoManager';
 
 export class BinanceClient {
   private readonly apiKey: string;
@@ -12,11 +8,13 @@ export class BinanceClient {
   // cached server time offset (serverTime - localTime)
   private timeOffsetMillis: number | null = null;
   private lastTimeSync: number | null = null;
+  private readonly exchangeInfoManager: ExchangeInfoManager;
 
   constructor(apiKey: string, apiSecret: string, baseUrl = 'https://api.binance.com') {
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.exchangeInfoManager = new ExchangeInfoManager(baseUrl);
   }
 
   /** Create a BinanceClient from Env (factory) */
@@ -50,36 +48,6 @@ export class BinanceClient {
     return parts.join('&');
   }
 
-  private async getPriceTickSize(symbol: string): Promise<number> {
-    const resp = await this.getExchangeInfo(symbol);
-    if (resp.status !== 200) throw new Error(`Failed to get exchange info for tickSize: status ${resp.status}`);
-    const data = resp.data as any;
-    const symbols = data.symbols;
-    if (!Array.isArray(symbols) || symbols.length === 0) throw new Error('No symbols found in exchange info');
-    const filters = symbols[0].filters;
-    for (const f of filters) {
-      if (f.filterType === 'PRICE_FILTER') {
-        return Number.parseFloat(f.tickSize);
-      }
-    }
-    throw new Error('PRICE_FILTER not found in exchange info');
-  }
-
-  private async getQuantityStepSize(symbol: string): Promise<number> {
-    const resp = await this.getExchangeInfo(symbol);
-    if (resp.status !== 200) throw new Error(`Failed to get exchange info for stepSize: status ${resp.status}`);
-    const data = resp.data as any;
-    const symbols = data.symbols;
-    if (!Array.isArray(symbols) || symbols.length === 0) throw new Error('No symbols found in exchange info');
-    const filters = symbols[0].filters;
-    for (const f of filters) {
-      if (f.filterType === 'LOT_SIZE') {
-        return Number.parseFloat(f.stepSize);
-      }
-    }
-    throw new Error('LOT_SIZE not found in exchange info');
-  }
-
   private truncateToStep(value: number, step: number): number {
     const ticks = Math.floor(value / step);
     return ticks * step;
@@ -97,14 +65,14 @@ export class BinanceClient {
     // Adjust quantity to step size
     let quantity = payload.quantity;
     if (typeof quantity === 'number') {
-      const stepSize = await this.getQuantityStepSize(payload.symbol);
+      const stepSize = await this.exchangeInfoManager.getQuantityStepSize(payload.symbol);
       quantity = this.truncateToStep(quantity, stepSize);
     }
 
     // Adjust price to tick size
     let price = payload.price;
     if (typeof price === 'number') {
-      const tickSize = await this.getPriceTickSize(payload.symbol);
+      const tickSize = await this.exchangeInfoManager.getPriceTickSize(payload.symbol);
       price = this.alignPriceToTick(price, tickSize);
     }
 
@@ -185,16 +153,7 @@ export class BinanceClient {
    * https://binance-docs.github.io/apidocs/spot/en/#exchange-information
    */
   public async getExchangeInfo(symbol?: string): Promise<BinanceResponse> {
-    const params: Record<string, unknown> = {};
-    if (symbol !== undefined) params.symbol = symbol;
-
-    const qs = this.buildQueryString(params);
-    const suffix = qs ? ('?' + qs) : '';
-    const url = this.baseUrl + '/api/v3/exchangeInfo' + suffix;
-
-    const resp = await fetch(url, { method: 'GET' });
-    const data = await resp.json().catch(() => ({ error: 'Invalid JSON response', status: resp.status }));
-    return { status: resp.status, data };
+    return this.exchangeInfoManager.getExchangeInfo(symbol);
   }
 
   /**
