@@ -67,6 +67,8 @@ export class BinanceClient {
     if (typeof quantity === 'number') {
       const stepSize = await this.exchangeInfoManager.getQuantityStepSize(payload.symbol);
       quantity = this.truncateToStep(quantity, stepSize);
+      const quantityPrecision = stepSize.toString().split('.')[1]?.length || 0;
+      quantity = Number.parseFloat(quantity.toFixed(quantityPrecision));
     }
 
     // Adjust price to tick size
@@ -74,6 +76,8 @@ export class BinanceClient {
     if (typeof price === 'number') {
       const tickSize = await this.exchangeInfoManager.getPriceTickSize(payload.symbol);
       price = this.alignPriceToTick(price, tickSize);
+      const pricePrecision = tickSize.toString().split('.')[1]?.length || 0;
+      price = Number.parseFloat(price.toFixed(pricePrecision));
     }
 
     const params: Record<string, unknown> = {
